@@ -19,7 +19,7 @@ func main() {
 
 	// check whether the arg of a filename is the only argument provided
 	if len(os.Args) != 2 {
-		fmt.Println("The amount of inputted args is invalid.")
+		fmt.Println("\nThe amount of inputted args is invalid.\n")
 		os.Exit(1)
 	}
 
@@ -30,7 +30,7 @@ func main() {
 
 	// check whether the first character of the .csv is a comma
 	if rune(Input[0]) != ',' {
-		fmt.Println("The table formatting is invalid since the first cell in the .csv file has to be empty.")
+		fmt.Println("\nThe table formatting is invalid since the first cell in the .csv file has to be empty.\n")
 		os.Exit(1)
 	}
 
@@ -48,7 +48,7 @@ func isCellEmpty(temp string, index int) {
 
 func errorCheck(err error) {
 	if err != nil {
-		fmt.Println("The file is invalid.")
+		fmt.Println("\nThe file is invalid.\n")
 		os.Exit(1)
 	}
 }
@@ -117,7 +117,7 @@ func parseInput(content []byte) Matrix {
 					rowIndexed = true
 				} else {
 					if len(tempMatrix.Columns) == columnIndex {
-						fmt.Printf("There are more cells in a row #%v than columns given.\n", rowIndex)
+						fmt.Printf("\nThere are more cells in a row #%v than columns given.\n", rowIndex)
 						os.Exit(1)
 					}
 					checkIfInt(temp)
@@ -156,7 +156,7 @@ func parseInput(content []byte) Matrix {
 
 	// check whether the formatting of the number of cells is correct
 	if len(tempMatrix.Links) != (len(tempMatrix.Columns) * len(tempMatrix.Rows)) {
-		fmt.Println("The table is corrupted. Some cells are not presented.")
+		fmt.Println("\nThe table is corrupted.")
 		os.Exit(1)
 	}
 
