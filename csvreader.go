@@ -1,19 +1,6 @@
 //	.csv file reader with calculating the inputted cell expressions.
 //	A test task for YADRO received on 26.01 with the DL of 02.02.
 
-/*
-	In this program panic() is used a lot more often than returning errors.
-
-	This is due to the decision of never allowing a user to continue execution when
-	the input is invalid. By doing so, testing the application becomes much easier.
-
-	However, this approach is harmful when it comes to the large-scale applications
-	where fatal crashes are a very unpleasant thing. So, there are still some cases
-	when returning errors remained an option.
-
-	- Georgii
-*/
-
 package main
 
 import (
@@ -33,7 +20,7 @@ func main() {
 	// check whether the arg of a filename is the only argument provided
 	if len(os.Args) != 2 {
 		fmt.Println("The amount of inputted args is invalid.")
-		panic("The input is corrupted.")
+		os.Exit(1)
 	}
 
 	arg := os.Args[1]
@@ -44,7 +31,7 @@ func main() {
 	// check whether the first character of the .csv is a comma
 	if rune(Input[0]) != ',' {
 		fmt.Println("The table formatting is invalid since the first cell in the .csv file has to be empty.")
-		panic("The input is corrupted.")
+		os.Exit(1)
 	}
 
 	Cells := parseInput(Input)
@@ -55,14 +42,14 @@ func main() {
 func isCellEmpty(temp string, index int) {
 	if temp == "" {
 		fmt.Printf("\nOne of the values appears missing on the line #%v.\n", index+1)
-		panic("The input is corrupted.")
+		os.Exit(1)
 	}
 }
 
 func errorCheck(err error) {
 	if err != nil {
 		fmt.Println("The file is invalid.")
-		panic("The input is corrupted.")
+		os.Exit(1)
 	}
 }
 
@@ -71,7 +58,7 @@ func safeStrToIntConvert(number *int64, value string) {
 	*number, err = strconv.ParseInt(value, 10, 64)
 	if err != nil {
 		fmt.Printf("\nAn operand in an expression cell [%v] refers to an invalid value.\n", value)
-		panic("The input is corrupted.")
+		os.Exit(1)
 	}
 }
 
@@ -125,13 +112,13 @@ func parseInput(content []byte) Matrix {
 						tempMatrix.Rows = append(tempMatrix.Rows, num)
 					} else {
 						fmt.Printf("\nThe index of a row #%v is not a positive integer value.\n", rowIndex)
-						panic("The input is corrupted.")
+						os.Exit(1)
 					}
 					rowIndexed = true
 				} else {
 					if len(tempMatrix.Columns) == columnIndex {
 						fmt.Printf("There are more cells in a row #%v than columns given.\n", rowIndex)
-						panic("The input is corrupted.")
+						os.Exit(1)
 					}
 					checkIfInt(temp)
 					tempMatrix.Links[tempMatrix.Columns[columnIndex-1]+strconv.FormatInt(int64(tempMatrix.Rows[rowIndex-1]), 10)] = temp
@@ -170,7 +157,7 @@ func parseInput(content []byte) Matrix {
 	// check whether the formatting of the number of cells is correct
 	if len(tempMatrix.Links) != (len(tempMatrix.Columns) * len(tempMatrix.Rows)) {
 		fmt.Println("The table is corrupted. Some cells are not presented.")
-		panic("The input is corrupted.")
+		os.Exit(1)
 	}
 
 	return tempMatrix
@@ -220,7 +207,7 @@ func expressionFixer(cellLink string, matrix Matrix, cellLinkForRecursionCheck s
 			// checking whether any operand in the expression cell refers to itself
 			if fstNumArg == cellLink || sndNumArg == cellLink {
 				fmt.Printf("\nThere is an expression cell '%v' producing recursion.\n", cellLink)
-				panic("The input is corrupted.")
+				os.Exit(1)
 			}
 
 			// initializing the variables responsible for storing the integer values of map's elements
@@ -229,11 +216,11 @@ func expressionFixer(cellLink string, matrix Matrix, cellLinkForRecursionCheck s
 			// check whether the operands are referring to a non-existing cell
 			if matrix.Links[fstNumArg] == "" {
 				fmt.Printf("\nThere is no cell with the link '%v' given (expression operand is invalid).\n", fstNumArg)
-				panic("The input is corrupted.")
+				os.Exit(1)
 			}
 			if matrix.Links[sndNumArg] == "" {
 				fmt.Printf("\nThere is no cell with the link '%v' given (expression operand is invalid).\n", sndNumArg)
-				panic("The input is corrupted.")
+				os.Exit(1)
 			}
 
 			// checking whether the reference of an operand is to an expression as well, recursion of expressionFixer()
@@ -254,14 +241,14 @@ func expressionFixer(cellLink string, matrix Matrix, cellLinkForRecursionCheck s
 			case '/':
 				if sndNum == 0 {
 					fmt.Printf("\nThere is an expression cell %v containing division by zero.\n", cellLink)
-					panic("The input is corrupted.")
+					os.Exit(1)
 				} else {
 					matrix.Links[cellLink] = strconv.FormatInt(int64(fstNum/sndNum), 10)
 				}
 			}
 		} else {
 			fmt.Printf("\nInvalid cell expression. In the cell %v no operator was found.\n", cellLink)
-			panic("The input is corrupted.")
+			os.Exit(1)
 		}
 	}
 	return matrix.Links[cellLink]
@@ -288,7 +275,7 @@ func checkIfInt(str string) {
 		temp, err := strconv.ParseInt(str, 10, 64)
 		if err != nil {
 			fmt.Printf("\nOne of the inputted cells contains an incorrect value [%s].\n", str)
-			panic("The input is corrupted.")
+			os.Exit(1)
 			/* 	The next line is just a never executing dummy action (a plug)
 			in order to move around the 'declared but not used' of temp */
 			temp++
@@ -300,7 +287,7 @@ func recursionFixer(arg string, matrix Matrix, cellLinkForRecursionCheck string)
 	if (matrix.Links[arg])[0] == '=' {
 		if matrix.Links[arg] == matrix.Links[cellLinkForRecursionCheck] {
 			fmt.Printf("\nThe structure of cell expressions produces a sempiternal recursion.\n")
-			panic("The input is corrupted.")
+			os.Exit(1)
 		}
 		expressionFixer(arg, matrix, cellLinkForRecursionCheck)
 	}
