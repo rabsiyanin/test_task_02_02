@@ -66,7 +66,7 @@ func errorCheck(err error) {
 	}
 }
 
-func safeConvert(number *int64, value string) {
+func safeStrToIntConvert(number *int64, value string) {
 	var err error
 	*number, err = strconv.ParseInt(value, 10, 64)
 	if err != nil {
@@ -121,10 +121,10 @@ func parseInput(content []byte) Matrix {
 				isCellEmpty(temp, rowIndex)
 				if rowIndexed == false {
 					num, err := strconv.ParseUint(temp, 10, 64)
-					if err == nil {
+					if err == nil && num != 0 {
 						tempMatrix.Rows = append(tempMatrix.Rows, num)
 					} else {
-						fmt.Printf("The index of a row #%v is not an integer value.\n", rowIndex)
+						fmt.Printf("\nThe index of a row #%v is not a positive integer value.\n", rowIndex)
 						panic("The input is corrupted.")
 					}
 					rowIndexed = true
@@ -133,6 +133,7 @@ func parseInput(content []byte) Matrix {
 						fmt.Printf("There are more cells in a row #%v than columns given.\n", rowIndex)
 						panic("The input is corrupted.")
 					}
+					checkIfInt(temp)
 					tempMatrix.Links[tempMatrix.Columns[columnIndex-1]+strconv.FormatInt(int64(tempMatrix.Rows[rowIndex-1]), 10)] = temp
 				}
 
@@ -142,6 +143,7 @@ func parseInput(content []byte) Matrix {
 			// if the file is written on Unix, '\r' prefix may appear missing
 			case content[i] == '\r' || content[i] == '\n':
 				isCellEmpty(temp, rowIndex)
+				checkIfInt(temp)
 				tempMatrix.Links[tempMatrix.Columns[columnIndex-1]+strconv.FormatInt(int64(tempMatrix.Rows[rowIndex-1]), 10)] = temp
 				temp = ""
 				// extra iteration in order to iterate over "\n" prefix
@@ -161,6 +163,7 @@ func parseInput(content []byte) Matrix {
 
 	// the last cell parsing
 	if temp != "" {
+		checkIfInt(temp)
 		tempMatrix.Links[tempMatrix.Columns[columnIndex-1]+strconv.FormatInt(int64(tempMatrix.Rows[rowIndex-1]), 10)] = temp
 	}
 
@@ -180,16 +183,17 @@ func expressionHandler(matrix Matrix) Matrix {
 		for j := 0; j < len(matrix.Columns); j += 1 {
 			// the key containing a link to the iterated cell (ARG)
 			cellLink := matrix.Columns[j] + strconv.FormatInt(int64(matrix.Rows[i]), 10)
-			matrix.Links[cellLink] = expressionConverter(cellLink, matrix)
+			matrix.Links[cellLink] = expressionFixer(cellLink, matrix, cellLink)
 		}
 	}
 	return matrix
 }
 
-func expressionConverter(cellLink string, matrix Matrix) string {
-	// parsing of a cell with an expression inside
+func expressionFixer(cellLink string, matrix Matrix, cellLinkForRecursionCheck string) string {
+	//  parsing of a cell with an expression inside
+	/*  cellLinkForRecursionCheck is needed to store the genesis value
+	and be used for checking whether the recursion in cell expressions is present. */
 	if (matrix.Links[cellLink])[0] == '=' {
-
 		opFound := false
 		var opIndex int
 		var op byte
@@ -208,33 +212,37 @@ func expressionConverter(cellLink string, matrix Matrix) string {
 		}
 
 		if opFound == true {
-
 			// a cell link the first operand refers to; in "=B1+Cell30" fstNumArg would be "B1"
 			fstNumArg := (matrix.Links[cellLink])[1:(opIndex)]
-
 			// a cell link the second operand refers to; in "=B1+Cell30" sndNumArg would be "Cell30"
 			sndNumArg := (matrix.Links[cellLink])[(opIndex + 1):]
 
 			// checking whether any operand in the expression cell refers to itself
 			if fstNumArg == cellLink || sndNumArg == cellLink {
-				fmt.Println("\nThere is an expression cell producing recursion.")
+				fmt.Printf("\nThere is an expression cell '%v' producing recursion.\n", cellLink)
 				panic("The input is corrupted.")
 			}
 
 			// initializing the variables responsible for storing the integer values of map's elements
 			var fstNum, sndNum int64
 
-			// checking whether the reference is to an expression as well, recursion of expressionConverter()
-			if (matrix.Links[fstNumArg])[0] == '=' {
-				expressionConverter(fstNumArg, matrix)
+			// check whether the operands are referring to a non-existing cell
+			if matrix.Links[fstNumArg] == "" {
+				fmt.Printf("\nThere is no cell with the link '%v' given (expression operand is invalid).\n", fstNumArg)
+				panic("The input is corrupted.")
 			}
-			if (matrix.Links[sndNumArg])[0] == '=' {
-				expressionConverter(sndNumArg, matrix)
+			if matrix.Links[sndNumArg] == "" {
+				fmt.Printf("\nThere is no cell with the link '%v' given (expression operand is invalid).\n", sndNumArg)
+				panic("The input is corrupted.")
 			}
 
+			// checking whether the reference of an operand is to an expression as well, recursion of expressionFixer()
+			recursionFixer(fstNumArg, matrix, cellLinkForRecursionCheck)
+			recursionFixer(sndNumArg, matrix, cellLinkForRecursionCheck)
+
 			// checking whether any operand in the expression cell refers to an invalid value
-			safeConvert(&fstNum, (matrix.Links[fstNumArg]))
-			safeConvert(&sndNum, (matrix.Links[sndNumArg]))
+			safeStrToIntConvert(&fstNum, (matrix.Links[fstNumArg]))
+			safeStrToIntConvert(&sndNum, (matrix.Links[sndNumArg]))
 
 			switch op {
 			case '+':
@@ -245,14 +253,14 @@ func expressionConverter(cellLink string, matrix Matrix) string {
 				matrix.Links[cellLink] = strconv.FormatInt(int64(fstNum*sndNum), 10)
 			case '/':
 				if sndNum == 0 {
-					fmt.Println("\nThere is an expression cell containing division by zero.")
+					fmt.Printf("\nThere is an expression cell %v containing division by zero.\n", cellLink)
 					panic("The input is corrupted.")
 				} else {
 					matrix.Links[cellLink] = strconv.FormatInt(int64(fstNum/sndNum), 10)
 				}
 			}
 		} else {
-			fmt.Println("Invalid cell expression. No operator was found.")
+			fmt.Printf("\nInvalid cell expression. In the cell %v no operator was found.\n", cellLink)
 			panic("The input is corrupted.")
 		}
 	}
@@ -273,4 +281,27 @@ func printCSV(matrix Matrix) {
 		}
 	}
 	fmt.Println()
+}
+
+func checkIfInt(str string) {
+	if str[0] != '=' {
+		temp, err := strconv.ParseInt(str, 10, 64)
+		if err != nil {
+			fmt.Printf("\nOne of the inputted cells contains an incorrect value [%s].\n", str)
+			panic("The input is corrupted.")
+			/* 	The next line is just a never executing dummy action (a plug)
+			in order to move around the 'declared but not used' of temp */
+			temp++
+		}
+	}
+}
+
+func recursionFixer(arg string, matrix Matrix, cellLinkForRecursionCheck string) {
+	if (matrix.Links[arg])[0] == '=' {
+		if matrix.Links[arg] == matrix.Links[cellLinkForRecursionCheck] {
+			fmt.Printf("\nThe structure of cell expressions produces a sempiternal recursion.\n")
+			panic("The input is corrupted.")
+		}
+		expressionFixer(arg, matrix, cellLinkForRecursionCheck)
+	}
 }
